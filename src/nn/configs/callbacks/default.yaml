@@ -1,0 +1,19 @@
+defaults:
+  # - model_checkpoint
+  # - model_summary
+  # - rich_progress_bar
+  # - learning_rate_monitor
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch:03d}"
+  monitor: "val/accuracy"
+  mode: "max"
+  save_last: true
+  auto_insert_metric_name: false
+
+# Reset stateful carry at epoch boundaries for stability
+reset_carry:
+  _target_: src.nn.utils.stability_callbacks.ResetCarryCallback

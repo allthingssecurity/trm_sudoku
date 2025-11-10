@@ -1,0 +1,9 @@
+# @package _global_
+
+# On macOS and general CPU-only environments, prefer CPU trainer.
+# You can override with `trainer=gpu` explicitly if desired.
+defaults:
+  - override /trainer: cpu
+
+paths:
+  log_dir: .
