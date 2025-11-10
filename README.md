@@ -101,6 +101,53 @@ PY`
 
 Example result from our 60‑epoch stable run (128×2, N_supervision=2): all samples exact and batch pixel accuracy 1.000.
 
+Examples (from a held‑out batch)
+
+Input:
+```
+[[0 0 0 0]
+ [0 4 0 1]
+ [0 0 0 4]
+ [0 3 1 0]]
+```
+Target / Pred:
+```
+[[1 2 4 3]
+ [3 4 2 1]
+ [2 1 3 4]
+ [4 3 1 2]]
+```
+
+Input:
+```
+[[0 0 4 2]
+ [2 0 0 1]
+ [3 0 0 4]
+ [0 0 0 0]]
+```
+Target / Pred:
+```
+[[1 3 4 2]
+ [2 4 3 1]
+ [3 1 2 4]
+ [4 2 1 3]]
+```
+
+Input:
+```
+[[0 4 1 3]
+ [0 0 0 0]
+ [4 0 3 1]
+ [0 1 0 0]]
+```
+Target / Pred:
+```
+[[2 4 1 3]
+ [1 3 2 4]
+ [4 2 3 1]
+ [3 1 4 2]]
+```
+
 # Note to contributors
 
 If you would like to make contributions to this codebase, here are things you can do:
