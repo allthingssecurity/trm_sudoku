@@ -46,7 +46,60 @@ PY`
 
 # Sample Predictions
 
-You can print a few solved puzzles from a held-out batch using a small script in the discussion above.
+Here is a short script to print a few held-out Sudoku4x4 puzzles with predictions:
+
+`uv run python - <<'PY'
+import torch, numpy as np
+from src.nn.data.sudoku4x4_datamodule import SudokuDataModule
+from src.nn.models.trm_module import TRMModule
+
+def decode_token(t):
+    if t <= 2: return 0
+    return int(t-2)
+
+device='mps' if torch.backends.mps.is_available() else 'cpu'
+ckpt='train/runs/<timestamp>/checkpoints/last.ckpt'  # replace with your checkpoint
+model=TRMModule.load_from_checkpoint(ckpt, map_location=device).to(device).eval()
+
+N=3; GRID=4; MAX=6
+dm=SudokuDataModule(batch_size=N, num_workers=0, grid_size=4, max_grid_size=6, generate_on_fly=True,
+                    num_train_puzzles=2000, num_val_puzzles=N)
+dm.setup('fit')
+batch=next(iter(dm.val_dataloader()))
+for k,v in list(batch.items()):
+    if isinstance(v, torch.Tensor): batch[k]=v.to(device)
+
+with torch.no_grad():
+    carry=model.initial_carry(batch)
+    while True:
+        carry, outputs = model.forward(carry, batch)
+        if carry.halted.all(): break
+    preds=outputs['logits'].argmax(dim=-1)
+
+labels=batch['output']
+mask=labels!=-100
+pix_acc=(preds==labels)[mask].float().mean().item()
+print(f'Batch pixel accuracy: {pix_acc:.3f}\n')
+
+for i in range(N):
+    pred = preds[i].cpu().numpy().reshape(MAX,MAX)
+    lab  = labels[i].cpu().numpy().reshape(MAX,MAX)
+    inp  = batch['input'][i].cpu().numpy().reshape(MAX,MAX)
+    pred4 = np.vectorize(decode_token)(pred)[:GRID,:GRID]
+    lab4  = np.vectorize(decode_token)(lab)[:GRID,:GRID]
+    inp4  = np.vectorize(decode_token)(inp)[:GRID,:GRID]
+    exact = int((pred4==lab4).all())
+    print(f'Sample {i+1} (exact: {exact})')
+    print('Input:')
+    print(inp4)
+    print('Target:')
+    print(lab4)
+    print('Pred:')
+    print(pred4)
+    print('-'*28)
+PY`
+
+Example result from our 60‑epoch stable run (128×2, N_supervision=2): all samples exact and batch pixel accuracy 1.000.
 
 # Note to contributors
 
