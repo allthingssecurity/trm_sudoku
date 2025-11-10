@@ -21,34 +21,59 @@ Alternatively you can use a virtual environment with `python -m venv .venv && so
 
 Quick GPU sanity run (macOS MPS):
 
-`uv run python src/nn/train.py experiment=trm_sudoku4x4 trainer=gpu trainer.accelerator=mps timekeeping.max_epochs=5`
+```bash
+uv run python src/nn/train.py \
+  experiment=trm_sudoku4x4 \
+  trainer=gpu trainer.accelerator=mps \
+  timekeeping.max_epochs=5
+```
 
 Stable longer run (good results):
 
-`uv run python src/nn/train.py experiment=trm_sudoku4x4 trainer=gpu trainer.accelerator=mps trainer.precision=32-true timekeeping.max_epochs=60 timekeeping.batch_size=128 model_tuning.hidden_size=128 model_tuning.num_layers=2 model_tuning.N_supervision=2 model_tuning.learning_rate=3e-4 model_tuning.learning_rate_emb=3e-3`
+```bash
+uv run python src/nn/train.py \
+  experiment=trm_sudoku4x4 \
+  trainer=gpu trainer.accelerator=mps trainer.precision=32-true \
+  timekeeping.max_epochs=60 timekeeping.batch_size=128 \
+  model_tuning.hidden_size=128 model_tuning.num_layers=2 \
+  model_tuning.N_supervision=2 \
+  model_tuning.learning_rate=3e-4 model_tuning.learning_rate_emb=3e-3
+```
 
 # Evaluation
 
 Sudoku is evaluated via the validation loop and simple scripts. Example to validate a checkpoint:
 
-`uv run python - <<'PY'
+```bash
+uv run python - <<'PY'
 from lightning import Trainer
 import torch
 from src.nn.data.sudoku4x4_datamodule import SudokuDataModule
 from src.nn.models.trm_module import TRMModule
-ckpt='train/runs/<timestamp>/checkpoints/last.ckpt'
-dm=SudokuDataModule(batch_size=128,num_workers=0,grid_size=4,max_grid_size=6,generate_on_fly=True,num_train_puzzles=2000,num_val_puzzles=800)
+
+ckpt = 'train/runs/<timestamp>/checkpoints/last.ckpt'
+
+dm = SudokuDataModule(
+    batch_size=128, num_workers=0,
+    grid_size=4, max_grid_size=6,
+    generate_on_fly=True,
+    num_train_puzzles=2000, num_val_puzzles=800,
+)
 dm.setup('fit')
-device='mps' if torch.backends.mps.is_available() else 'cpu'
-model=TRMModule.load_from_checkpoint(ckpt,map_location=device)
-print(Trainer(accelerator=device,devices=1).validate(model,dm.val_dataloader()))
-PY`
+
+device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+model = TRMModule.load_from_checkpoint(ckpt, map_location=device)
+
+print(Trainer(accelerator=device, devices=1).validate(model, dm.val_dataloader()))
+PY
+```
 
 # Sample Predictions
 
 Here is a short script to print a few held-out Sudoku4x4 puzzles with predictions:
 
-`uv run python - <<'PY'
+```bash
+uv run python - <<'PY'
 import torch, numpy as np
 from src.nn.data.sudoku4x4_datamodule import SudokuDataModule
 from src.nn.models.trm_module import TRMModule
@@ -57,28 +82,28 @@ def decode_token(t):
     if t <= 2: return 0
     return int(t-2)
 
-device='mps' if torch.backends.mps.is_available() else 'cpu'
-ckpt='train/runs/<timestamp>/checkpoints/last.ckpt'  # replace with your checkpoint
-model=TRMModule.load_from_checkpoint(ckpt, map_location=device).to(device).eval()
+device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+ckpt = 'train/runs/<timestamp>/checkpoints/last.ckpt'  # replace with your checkpoint
+model = TRMModule.load_from_checkpoint(ckpt, map_location=device).to(device).eval()
 
 N=3; GRID=4; MAX=6
-dm=SudokuDataModule(batch_size=N, num_workers=0, grid_size=4, max_grid_size=6, generate_on_fly=True,
-                    num_train_puzzles=2000, num_val_puzzles=N)
+dm = SudokuDataModule(batch_size=N, num_workers=0, grid_size=4, max_grid_size=6,
+                      generate_on_fly=True, num_train_puzzles=2000, num_val_puzzles=N)
 dm.setup('fit')
-batch=next(iter(dm.val_dataloader()))
+batch = next(iter(dm.val_dataloader()))
 for k,v in list(batch.items()):
     if isinstance(v, torch.Tensor): batch[k]=v.to(device)
 
 with torch.no_grad():
-    carry=model.initial_carry(batch)
+    carry = model.initial_carry(batch)
     while True:
         carry, outputs = model.forward(carry, batch)
         if carry.halted.all(): break
-    preds=outputs['logits'].argmax(dim=-1)
+    preds = outputs['logits'].argmax(dim=-1)
 
-labels=batch['output']
-mask=labels!=-100
-pix_acc=(preds==labels)[mask].float().mean().item()
+labels = batch['output']
+mask = labels != -100
+pix_acc = (preds==labels)[mask].float().mean().item()
 print(f'Batch pixel accuracy: {pix_acc:.3f}\n')
 
 for i in range(N):
@@ -97,7 +122,8 @@ for i in range(N):
     print('Pred:')
     print(pred4)
     print('-'*28)
-PY`
+PY
+```
 
 Example result from our 60‑epoch stable run (128×2, N_supervision=2): all samples exact and batch pixel accuracy 1.000.
 
